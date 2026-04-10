@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { MessageCircle, X, Send, Mic } from "lucide-react";
 
 const quickReplies = [
@@ -19,73 +19,137 @@ export default function ChatbotWidget() {
     { role: "bot", text: "Hello! 👋 I'm your ElderCare assistant. How can I help you today?" },
   ]);
   const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const send = (text: string) => {
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const send = async (text: string) => {
     if (!text.trim()) return;
-    setMessages((m) => [
-      ...m,
-      { role: "user", text },
-      { role: "bot", text: "Thank you for your question! This feature will be connected to an AI assistant soon. 🤖" },
-    ]);
+
+    const emergencyWords = ["chest pain", "can't breathe", "help me", "emergency", "heart attack", "stroke"];
+    if (emergencyWords.some(word => text.toLowerCase().includes(word))) {
+      setMessages(prev => [
+        ...prev,
+        { role: "user", text },
+        { role: "bot", text: "🚨 This sounds serious. Please call emergency services or your doctor immediately!" }
+      ]);
+      setInput("");
+      return;
+    }
+
+    setMessages(prev => [...prev, { role: "user" as const, text }]);
+    setLoading(true);
+
+    try {
+      const apiKey = import.meta.env.VITE_OPENROUTER_API_KEY;
+
+      if (!apiKey) {
+        throw new Error("API key not found. Check your .env file.");
+      }
+
+      const res = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${apiKey}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": window.location.origin,
+          "X-Title": "ElderCare AI",
+        },
+        body: JSON.stringify({
+          model: "openai/gpt-4o-mini",
+          messages: [
+            {
+              role: "system",
+              content: "You are a helpful healthcare assistant for elderly people. Use simple, warm, clear language. Be concise. If someone describes a medical emergency, urge immediate help.",
+            },
+            {
+              role: "user",
+              content: text,
+            },
+          ],
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data?.error?.message || `API error ${res.status}`);
+      }
+
+      const reply = data.choices?.[0]?.message?.content || "⚠️ No response from AI";
+      setMessages(prev => [...prev, { role: "bot", text: reply }]);
+
+    } catch (error: any) {
+      setMessages(prev => [
+        ...prev,
+        { role: "bot", text: `❌ Error: ${error.message || "Could not connect to AI"}` },
+      ]);
+    }
+
+    setLoading(false);
     setInput("");
   };
 
   return (
     <>
-      {/* Floating button */}
       {!open && (
         <button
           onClick={() => setOpen(true)}
-          className="fixed bottom-20 right-4 z-40 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-soft-lg flex items-center justify-center animate-float"
-          aria-label="Open chat assistant"
+          className="fixed bottom-20 right-4 z-40 w-14 h-14 rounded-full bg-primary text-primary-foreground shadow-soft-lg flex items-center justify-center"
         >
           <MessageCircle className="w-7 h-7" />
         </button>
       )}
 
-      {/* Chat panel */}
       {open && (
-        <div className="fixed bottom-20 right-4 z-40 w-[340px] max-h-[480px] bg-card rounded-2xl shadow-soft-lg border border-border flex flex-col overflow-hidden">
-          {/* Header */}
-          <div className="bg-primary text-primary-foreground px-4 py-3 flex items-center justify-between rounded-t-2xl">
-            <span className="font-bold text-elder-base">Care Assistant</span>
-            <button onClick={() => setOpen(false)} aria-label="Close chat">
+        <div className="fixed bottom-20 right-4 z-40 w-[340px] max-h-[480px] bg-card rounded-2xl shadow-soft-lg border flex flex-col overflow-hidden">
+
+          <div className="bg-primary text-primary-foreground px-4 py-3 flex justify-between items-center">
+            <span className="font-bold">Care Assistant</span>
+            <button onClick={() => setOpen(false)}>
               <X className="w-5 h-5" />
             </button>
           </div>
 
-          {/* Messages */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3 max-h-[300px]">
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {messages.map((m, i) => (
               <div
                 key={i}
-                className={`max-w-[80%] px-4 py-2 rounded-2xl text-elder-sm ${
+                className={`max-w-[80%] px-4 py-2 rounded-2xl text-sm ${
                   m.role === "bot"
-                    ? "bg-muted text-foreground self-start"
-                    : "bg-primary text-primary-foreground ml-auto"
+                    ? "bg-muted text-foreground"
+                    : "bg-primary text-white ml-auto"
                 }`}
               >
                 {m.text}
               </div>
             ))}
+            {loading && (
+              <div className="text-sm text-muted-foreground animate-pulse">
+                Bot is typing...
+              </div>
+            )}
+            <div ref={messagesEndRef} />
           </div>
 
-          {/* Quick replies */}
           <div className="px-4 pb-2 flex flex-wrap gap-2">
             {quickReplies.map((q) => (
               <button
                 key={q}
                 onClick={() => send(q)}
-                className="text-xs bg-secondary text-secondary-foreground px-3 py-1 rounded-full hover:bg-primary hover:text-primary-foreground transition-colors"
+                className="text-xs bg-secondary px-3 py-1 rounded-full hover:opacity-80 transition-opacity"
               >
                 {q}
               </button>
             ))}
           </div>
 
-          {/* Input */}
-          <div className="border-t border-border p-3 flex gap-2">
-            <button className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center text-muted-foreground hover:text-primary transition-colors" aria-label="Voice input">
+          <div className="border-t p-3 flex gap-2">
+            <button className="w-10 h-10 bg-muted flex items-center justify-center rounded-xl">
               <Mic className="w-5 h-5" />
             </button>
             <input
@@ -93,16 +157,17 @@ export default function ChatbotWidget() {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && send(input)}
               placeholder="Ask me anything..."
-              className="flex-1 bg-muted rounded-xl px-4 py-2 text-elder-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/30"
+              className="flex-1 bg-muted rounded-xl px-4 py-2 text-sm outline-none"
             />
             <button
               onClick={() => send(input)}
-              className="w-10 h-10 rounded-xl bg-primary text-primary-foreground flex items-center justify-center"
-              aria-label="Send"
+              disabled={loading}
+              className="w-10 h-10 bg-primary text-white flex items-center justify-center rounded-xl disabled:opacity-50"
             >
               <Send className="w-4 h-4" />
             </button>
           </div>
+
         </div>
       )}
     </>
