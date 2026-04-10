@@ -9,6 +9,7 @@ import Medicines from "./pages/Medicines";
 import Reminders from "./pages/Reminders";
 import Profile from "./pages/Profile";
 import SettingsPage from "./pages/SettingsPage";
+import HeartbeatPage from "./pages/HeartbeatPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -20,13 +21,14 @@ const App = () => (
       <Sonner />
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<Index />} />
-          <Route path="/reports" element={<Reports />} />
-          <Route path="/medicines" element={<Medicines />} />
-          <Route path="/reminders" element={<Reminders />} />
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/settings" element={<SettingsPage />} />
-          <Route path="*" element={<NotFound />} />
+          <Route path="/"          element={<Index />}        />
+          <Route path="/reports"   element={<Reports />}      />
+          <Route path="/medicines" element={<Medicines />}    />
+          <Route path="/reminders" element={<Reminders />}   />
+          <Route path="/heartbeat" element={<HeartbeatPage />} />
+          <Route path="/profile"   element={<Profile />}      />
+          <Route path="/settings"  element={<SettingsPage />} />
+          <Route path="*"          element={<NotFound />}     />
         </Routes>
       </BrowserRouter>
     </TooltipProvider>

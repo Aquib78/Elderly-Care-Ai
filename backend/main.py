@@ -1,10 +1,13 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routes.analyze import router as analyze_router
+from routes.audio import router as audio_router
+from routes.audio_result import router as audio_result_router
+
+
 
 app = FastAPI()
+app.include_router(audio_result_router)
 
-# ✅ IMPORTANT (fix frontend connection issue)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -17,4 +20,4 @@ app.add_middleware(
 def root():
     return {"message": "Backend running"}
 
-app.include_router(analyze_router)
+app.include_router(audio_router)

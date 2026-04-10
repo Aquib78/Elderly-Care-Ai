@@ -11,4 +11,4 @@ MONGO_URL = os.getenv("MONGO_URL")
 
 client = MongoClient(MONGO_URL, tlsCAFile=certifi.where())
 
-db = client["elderly_care"]
+db = client["sharedAudioDB"]
