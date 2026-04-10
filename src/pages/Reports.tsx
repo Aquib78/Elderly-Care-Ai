@@ -1,30 +1,42 @@
 import { useState } from "react";
-import { Upload, FileText, Sparkles, Volume2 } from "lucide-react";
+import { Upload, Volume2 } from "lucide-react";
 import Layout from "@/components/Layout";
 
 export default function Reports() {
-  const [uploaded, setUploaded] = useState(false);
   const [text, setText] = useState("");
   const [simplifiedText, setSimplifiedText] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // 🔥 API CALL
-  const simplifyReport = async () => {
+  const handleFileUpload = async (file: File) => {
+    console.log("📂 Selected:", file.name);
+
     setLoading(true);
+    setText("");
+    setSimplifiedText("");
+
+    const formData = new FormData();
+    formData.append("file", file);
 
     try {
-      const res = await fetch("http://127.0.0.1:8000/simplify-report/", {
+      const res = await fetch("http://127.0.0.1:8000/analyze-report/", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ text }),
+        body: formData,
       });
 
       const data = await res.json();
+      console.log("🔥 RESPONSE:", data);
+
+      if (!res.ok) {
+        alert(data.error || "Upload failed");
+        return;
+      }
+
+      setText(data.text);
       setSimplifiedText(data.simplified);
+
     } catch (err) {
       console.error(err);
+      alert("❌ Cannot connect to backend");
     }
 
     setLoading(false);
@@ -36,79 +48,63 @@ export default function Reports() {
         <h1 className="text-elder-2xl font-bold">Medical Reports</h1>
 
         {/* Upload */}
-        <div
-          className="elder-card border-2 border-dashed border-primary/40 flex flex-col items-center gap-4 py-12 cursor-pointer hover:bg-primary/5 transition"
-          onClick={() => {
-            setUploaded(true);
-
-            // TEMP TEXT (replace with OCR later)
-            setText(`
-              Hemoglobin: 11.2 g/dL (Low)
-              WBC: 7500 (Normal)
-              Platelets: 220000 (Normal)
-              Blood Sugar: 145 mg/dL (High)
-            `);
-          }}
-        >
+        <label className="elder-card border-2 border-dashed border-primary/40 flex flex-col items-center gap-4 py-12 cursor-pointer hover:bg-primary/5 transition">
           <Upload className="w-16 h-16 text-primary" />
+
           <p className="text-elder-lg font-semibold text-center">
-            Tap here to upload your medical report
+            Click to upload report image
           </p>
-          <p className="text-muted-foreground text-center">
-            PDF, Image, or Photo
-          </p>
-        </div>
 
-        {uploaded && (
-          <>
-            {/* 🧾 Extracted Text */}
-            <div className="elder-card">
-              <div className="flex items-center gap-2 mb-4">
-                <FileText className="w-6 h-6 text-primary" />
-                <h2 className="text-elder-xl font-bold">Report Content</h2>
-              </div>
+          <input
+            type="file"
+            accept="image/*"
+            className="hidden"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file) handleFileUpload(file);
+            }}
+          />
+        </label>
 
-              <div className="bg-muted rounded-xl p-4 whitespace-pre-wrap text-elder-base">
-                {text}
-              </div>
+        {/* Loading */}
+        {loading && (
+          <p className="text-center">🔄 Processing report...</p>
+        )}
+
+        {/* Extracted Text */}
+        {text && (
+          <div className="elder-card">
+            <h2 className="font-bold mb-2">📄 Extracted Text</h2>
+            <div className="bg-muted p-4 whitespace-pre-wrap">
+              {text}
+            </div>
+          </div>
+        )}
+
+        {/* AI Output */}
+        {simplifiedText && (
+          <div className="elder-card bg-green-100">
+            <div className="flex justify-between items-center mb-2">
+              <h2 className="font-bold text-green-700">
+                🤖 Simple Explanation
+              </h2>
 
               <button
-                onClick={simplifyReport}
-                className="elder-btn bg-primary text-primary-foreground mt-4 flex items-center gap-3 w-full justify-center"
+                onClick={() => {
+                  const speech = new SpeechSynthesisUtterance(
+                    simplifiedText
+                  );
+                  speechSynthesis.speak(speech);
+                }}
               >
-                <Sparkles className="w-6 h-6" />
-                {loading ? "Processing..." : "Simplify This Report"}
+                <Volume2 />
               </button>
             </div>
 
-            {/* 🤖 AI OUTPUT */}
-            {simplifiedText && (
-              <div className="elder-card bg-success/10 border-success/30">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-elder-xl font-bold text-success">
-                    ✅ Simple Explanation
-                  </h2>
-
-                  {/* 🔊 TTS Button */}
-                  <button
-                    onClick={() => {
-                      const speech = new SpeechSynthesisUtterance(
-                        simplifiedText
-                      );
-                      speechSynthesis.speak(speech);
-                    }}
-                    className="w-10 h-10 rounded-xl bg-info text-info-foreground flex items-center justify-center"
-                  >
-                    <Volume2 className="w-5 h-5" />
-                  </button>
-                </div>
-
-                <div className="bg-card rounded-xl p-4 text-elder-base leading-relaxed whitespace-pre-wrap">
-                  {simplifiedText}
-                </div>
-              </div>
-            )}
-          </>
+            <div className="whitespace-pre-wrap">
+              {simplifiedText}
+            </div>
+          </div>
         )}
       </div>
     </Layout>

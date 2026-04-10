@@ -41,11 +41,23 @@ export default function Index() {
   const [message, setMessage] = useState("");
   const [messages, setMessages] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [listening, setListening] = useState(false);
 
-  const sendMessage = async () => {
-    if (!message.trim()) return;
+  // 🔊 TEXT TO SPEECH
+  const speak = (text: string) => {
+    const speech = new SpeechSynthesisUtterance(text);
+    speech.lang = "en-US";
+    speech.rate = 0.9;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(speech);
+  };
 
-    const newMessages = [...messages, { type: "user", text: message }];
+  // 🤖 SEND MESSAGE
+  const sendMessage = async (inputText?: string) => {
+    const userText = inputText || message;
+    if (!userText.trim()) return;
+
+    const newMessages = [...messages, { type: "user", text: userText }];
     setMessages(newMessages);
     setLoading(true);
 
@@ -55,16 +67,15 @@ export default function Index() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ message }),
+        body: JSON.stringify({ message: userText }),
       });
 
       const data = await res.json();
+      const reply = data.reply || "No response";
 
-      setMessages([
-        ...newMessages,
-        { type: "bot", text: data.reply },
-      ]);
+      setMessages([...newMessages, { type: "bot", text: reply }]);
 
+      speak(reply); // 🔊 AI speaks
     } catch (err) {
       setMessages([
         ...newMessages,
@@ -76,30 +87,63 @@ export default function Index() {
     setLoading(false);
   };
 
+  // 🎤 VOICE INPUT
+  const startListening = () => {
+    const SpeechRecognition =
+      (window as any).SpeechRecognition ||
+      (window as any).webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+      alert("⚠️ Voice not supported. Use Chrome.");
+      return;
+    }
+
+    const recognition = new SpeechRecognition();
+    recognition.lang = "en-US";
+
+    setListening(true);
+    recognition.start();
+
+    recognition.onresult = (event: any) => {
+      const transcript = event.results[0][0].transcript;
+      setListening(false);
+      sendMessage(transcript);
+    };
+
+    recognition.onerror = () => {
+      setListening(false);
+      alert("Voice recognition failed");
+    };
+
+    recognition.onend = () => {
+      setListening(false);
+    };
+  };
+
   return (
     <Layout>
       <div className="space-y-6 pb-6">
 
-        {/* ── Welcome ── */}
-        <div
-          className="elder-card border-primary/20"
-          style={{
-            background:
-              "linear-gradient(135deg, hsl(168 55% 95%) 0%, hsl(180 20% 97%) 100%)",
-          }}
-        >
-          <h1 className="text-3xl font-extrabold">{greeting}</h1>
+        {/* ✅ Welcome Card (FIXED DARK MODE) */}
+        <div className="elder-card border-primary/20 bg-card">
+          <h1 className="text-3xl font-extrabold text-foreground">
+            {greeting}
+          </h1>
+
           <p className="text-lg text-muted-foreground mt-2">
             How are you feeling today? Let me help you with your health.
           </p>
 
-          <button className="elder-btn-primary mt-5 flex items-center gap-2">
+          <button
+            onClick={startListening}
+            className="elder-btn-primary mt-5 flex items-center gap-2"
+          >
             <Mic className="w-5 h-5" />
-            Talk to me
+            {listening ? "Listening..." : "Talk to me"}
           </button>
         </div>
 
-        {/* ── Quick Actions ── */}
+        {/* Quick Actions */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {quickActions.map(({ to, icon: Icon, label, bg, iconColor }) => (
             <Link
@@ -110,31 +154,31 @@ export default function Index() {
               <div className={`${bg} rounded-2xl p-4`}>
                 <Icon className={`w-10 h-10 ${iconColor}`} />
               </div>
-              <span className="text-xl font-bold text-center">{label}</span>
+              <span className="text-xl font-bold text-center text-foreground">
+                {label}
+              </span>
             </Link>
           ))}
         </div>
 
-        {/* ── Upcoming ── */}
+        {/* Upcoming */}
         <div className="elder-card">
           <div className="flex items-center gap-3 mb-5">
             <Bell className="w-6 h-6 text-warning" />
-            <h2 className="text-2xl font-bold">Upcoming</h2>
+            <h2 className="text-2xl font-bold text-foreground">Upcoming</h2>
           </div>
 
-          <div className="space-y-3">
-            <p className="text-muted-foreground">
-              No upcoming reminders yet.
-            </p>
-          </div>
+          <p className="text-muted-foreground">
+            No upcoming reminders yet.
+          </p>
         </div>
 
-        {/* ── Emergency ── */}
+        {/* Emergency */}
         <EmergencyButton />
 
       </div>
 
-      {/* 💬 Chat Button */}
+      {/* 💬 Chat Button (ONLY ONE) */}
       <button
         onClick={() => setChatOpen(!chatOpen)}
         className="fixed bottom-6 right-6 bg-primary text-white p-4 rounded-full shadow-lg"
@@ -144,7 +188,7 @@ export default function Index() {
 
       {/* 💬 Chat Window */}
       {chatOpen && (
-        <div className="fixed bottom-20 right-6 w-80 h-96 bg-white shadow-xl rounded-xl flex flex-col">
+        <div className="fixed bottom-24 right-6 w-80 h-96 bg-white dark:bg-card shadow-xl rounded-xl flex flex-col">
 
           <div className="flex-1 p-3 overflow-y-auto space-y-2">
             {messages.map((msg, i) => (
@@ -153,7 +197,7 @@ export default function Index() {
                 className={`p-2 rounded-lg ${
                   msg.type === "user"
                     ? "bg-primary text-white text-right"
-                    : "bg-muted text-left"
+                    : "bg-muted text-left text-foreground"
                 }`}
               >
                 {msg.text}
@@ -169,11 +213,11 @@ export default function Index() {
             <input
               value={message}
               onChange={(e) => setMessage(e.target.value)}
-              className="flex-1 border rounded px-2"
+              className="flex-1 border rounded px-2 bg-background text-foreground"
               placeholder="Ask something..."
             />
             <button
-              onClick={sendMessage}
+              onClick={() => sendMessage()}
               className="ml-2 bg-primary text-white px-3 rounded"
             >
               Send

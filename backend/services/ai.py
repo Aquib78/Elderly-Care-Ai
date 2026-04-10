@@ -1,38 +1,29 @@
-import os
-from openai import OpenAI
-from dotenv import load_dotenv
+import easyocr
 
-load_dotenv()
+reader = easyocr.Reader(['en'])
 
-client = OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
+def simplify_medical_text(image_bytes):
+    import numpy as np
+    import cv2
 
-def simplify_medical_text(raw_text: str):
-    prompt = f"""
-You are a senior doctor explaining a medical report to an elderly patient.
+    # Convert bytes → image
+    nparr = np.frombuffer(image_bytes, np.uint8)
+    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
-DO NOT repeat medical terms unnecessarily.
-DO NOT copy the report.
+    # OCR
+    result = reader.readtext(img, detail=0)
 
-Instead:
-- Explain what is wrong in simple language
-- Explain what it means for the person
-- Suggest what they should do next
+    extracted_text = "\n".join(result)
 
-Use bullet points.
+    # SIMPLE RULE-BASED AI (for now)
+    simplified = "🩺 Summary:\n\n"
 
-Make it VERY EASY to understand.
+    for line in result:
+        if "low" in line.lower():
+            simplified += f"⚠️ {line} → This is lower than normal\n"
+        elif "high" in line.lower():
+            simplified += f"⚠️ {line} → This is higher than normal\n"
+        else:
+            simplified += f"✅ {line} → Looks normal\n"
 
-Medical Report:
-{raw_text}
-"""
-
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "user", "content": prompt}
-        ]
-    )
-    print("[DEBUG] Inside simplify_medical_text()")
-    print("🚀 GPT RESPONSE:", response)
-
-    return response.choices[0].message.content
+    return extracted_text, simplified
