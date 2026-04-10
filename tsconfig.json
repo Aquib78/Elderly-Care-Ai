@@ -1,6 +1,7 @@
 {
   "compilerOptions": {
     "allowJs": true,
+    "types": ["node"],
     "noImplicitAny": false,
     "noUnusedLocals": false,
     "noUnusedParameters": false,

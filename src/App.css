@@ -1,42 +1,64 @@
+/* ─── Tokens ─────────────────────────────────────────── */
+:root {
+  --logo-size: 6em;
+  --logo-padding: 1.5em;
+  --logo-glow-vite: #646cffaa;
+  --logo-glow-react: #61dafbaa;
+  --logo-spin-duration: 20s;
+
+  --card-padding: 2em;
+  --card-radius: 0.75em;
+
+  --color-subtle: #888;
+}
+
+/* ─── Layout ──────────────────────────────────────────── */
 #root {
   max-width: 1280px;
   margin: 0 auto;
   padding: 2rem;
-  text-align: center;
+  /* ✅ Don't carpet-bomb text-align — set it only where needed */
 }
 
+/* ─── Logo ────────────────────────────────────────────── */
 .logo {
-  height: 6em;
-  padding: 1.5em;
+  height: var(--logo-size);
+  padding: var(--logo-padding);
+  transition: filter 300ms ease;
+  /* ✅ Only promote to GPU layer when it actually matters */
+}
+
+.logo:is(:hover, :focus-visible) {
   will-change: filter;
-  transition: filter 300ms;
+  filter: drop-shadow(0 0 2em var(--logo-glow-vite));
+  outline: none; /* ring handled by drop-shadow */
 }
-.logo:hover {
-  filter: drop-shadow(0 0 2em #646cffaa);
+
+.logo.react:is(:hover, :focus-visible) {
+  filter: drop-shadow(0 0 2em var(--logo-glow-react));
 }
-.logo.react:hover {
-  filter: drop-shadow(0 0 2em #61dafbaa);
+
+/* ✅ Robust class-based selector instead of fragile nth-of-type */
+.logo.spinning {
+  @media (prefers-reduced-motion: no-preference) {
+    animation: logo-spin var(--logo-spin-duration) linear infinite;
+  }
 }
 
 @keyframes logo-spin {
-  from {
-    transform: rotate(0deg);
-  }
-  to {
-    transform: rotate(360deg);
-  }
+  to { transform: rotate(360deg); }
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  a:nth-of-type(2) .logo {
-    animation: logo-spin infinite 20s linear;
-  }
-}
-
+/* ─── Card ────────────────────────────────────────────── */
 .card {
-  padding: 2em;
+  padding: var(--card-padding);
+  /* ✅ Actually useful defaults */
+  border-radius: var(--card-radius);
+  text-align: center; /* ✅ Center only content that needs it */
 }
 
+/* ─── Utility ─────────────────────────────────────────── */
 .read-the-docs {
-  color: #888;
+  color: var(--color-subtle);
+  font-size: 0.9em; /* ✅ Slightly de-emphasise to match its muted role */
 }
