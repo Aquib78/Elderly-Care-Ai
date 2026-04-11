@@ -1,14 +1,13 @@
-import { useState } from "react";
-import { Clock, Plus, Bell, Phone, MessageSquare } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Clock, Plus, Bell, Phone, MessageSquare, Trash2 } from "lucide-react";
 import Layout from "@/components/Layout";
 
 interface Reminder {
-  id: number;
+  _id: string;
   medicine: string;
   time: string;
   frequency: string;
-  sms: boolean;
-  call: boolean;
+  phone: string;
 }
 
 export default function Reminders() {
@@ -19,54 +18,75 @@ export default function Reminders() {
   const [newTime, setNewTime] = useState("08:00");
   const [phone, setPhone] = useState("");
 
+  // =========================
+  // 🔄 FETCH FROM BACKEND
+  // =========================
+  const fetchReminders = async () => {
+    try {
+      const res = await fetch("http://127.0.0.1:8000/get-reminders/");
+      const data = await res.json();
+      setReminders(data);
+    } catch (err) {
+      console.error("Fetch error:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchReminders();
+  }, []);
+
+  // =========================
+  // ➕ ADD REMINDER
+  // =========================
   const addReminder = async () => {
     if (!newMedicine || !phone) {
       alert("Please fill all fields");
       return;
     }
 
-    // Add locally
-    setReminders((r) => [
-      ...r,
-      {
-        id: Date.now(),
-        medicine: newMedicine,
-        time: newTime,
-        frequency: "Daily",
-        sms: false,
-        call: true,
-      },
-    ]);
-
-    // 🔥 Call backend API
     try {
-      const res = await fetch("http://localhost:5000/call-reminder", {
+      await fetch("http://127.0.0.1:8000/add-reminder/", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          phone: phone,
           medicine: newMedicine,
+          time: newTime,
+          phone: phone,
         }),
       });
 
-      const data = await res.json();
-      console.log("CALL RESPONSE:", data);
+      fetchReminders(); // refresh list
     } catch (err) {
-      console.error("ERROR:", err);
+      console.error("Add error:", err);
     }
 
-    // Reset
     setNewMedicine("");
     setPhone("");
     setShowForm(false);
   };
 
+  // =========================
+  // 🗑 DELETE REMINDER
+  // =========================
+  const deleteReminder = async (id: string) => {
+    try {
+      await fetch(`http://127.0.0.1:8000/delete-reminder/${id}`, {
+        method: "DELETE",
+      });
+
+      setReminders((prev) => prev.filter((r) => r._id !== id));
+    } catch (err) {
+      console.error("Delete error:", err);
+    }
+  };
+
   return (
     <Layout>
       <div className="space-y-6">
-        {/* Header */}
+
+        {/* HEADER */}
         <div className="flex items-center justify-between">
           <h1 className="text-elder-2xl font-bold">Reminders</h1>
           <button
@@ -77,7 +97,7 @@ export default function Reminders() {
           </button>
         </div>
 
-        {/* Form */}
+        {/* FORM */}
         {showForm && (
           <div className="elder-card space-y-4">
             <h3 className="text-elder-lg font-bold">Add New Reminder</h3>
@@ -112,10 +132,11 @@ export default function Reminders() {
           </div>
         )}
 
-        {/* List */}
+        {/* LIST */}
         <div className="space-y-4">
           {reminders.map((r) => (
-            <div key={r.id} className="elder-card flex items-center gap-4">
+            <div key={r._id} className="elder-card flex items-center gap-4">
+
               <div className="w-14 h-14 rounded-2xl bg-info/15 flex items-center justify-center">
                 <Bell className="w-7 h-7 text-info" />
               </div>
@@ -125,7 +146,7 @@ export default function Reminders() {
 
                 <div className="flex items-center gap-2 text-gray-500 mt-1">
                   <Clock className="w-4 h-4" />
-                  <span>{r.time} • {r.frequency}</span>
+                  <span>{r.time} • Daily</span>
                 </div>
 
                 <div className="flex gap-3 mt-2">
@@ -138,9 +159,19 @@ export default function Reminders() {
                   </span>
                 </div>
               </div>
+
+              {/* 🗑 DELETE BUTTON */}
+              <button
+                onClick={() => deleteReminder(r._id)}
+                className="text-red-500 hover:bg-red-100 p-2 rounded-lg"
+              >
+                <Trash2 className="w-5 h-5" />
+              </button>
+
             </div>
           ))}
         </div>
+
       </div>
     </Layout>
   );
