@@ -3,11 +3,11 @@ import { Clock, Plus, Bell, Phone, MessageSquare, Trash2 } from "lucide-react";
 import Layout from "@/components/Layout";
 
 interface Reminder {
-  _id: string;
+  id: number;
   medicine: string;
   time: string;
-  frequency: string;
   phone: string;
+  called?: boolean;
 }
 
 export default function Reminders() {
@@ -19,48 +19,42 @@ export default function Reminders() {
   const [phone, setPhone] = useState("");
 
   // =========================
-  // 🔄 FETCH FROM BACKEND
+  // LOAD FROM STORAGE
   // =========================
-  const fetchReminders = async () => {
-    try {
-      const res = await fetch("http://127.0.0.1:8000/get-reminders/");
-      const data = await res.json();
-      setReminders(data);
-    } catch (err) {
-      console.error("Fetch error:", err);
-    }
-  };
-
   useEffect(() => {
-    fetchReminders();
+    const saved = localStorage.getItem("reminders");
+    if (saved) {
+      setReminders(JSON.parse(saved));
+    }
   }, []);
 
   // =========================
-  // ➕ ADD REMINDER
+  // SAVE TO STORAGE
   // =========================
-  const addReminder = async () => {
+  const saveToStorage = (data: Reminder[]) => {
+    localStorage.setItem("reminders", JSON.stringify(data));
+  };
+
+  // =========================
+  // ADD REMINDER
+  // =========================
+  const addReminder = () => {
     if (!newMedicine || !phone) {
       alert("Please fill all fields");
       return;
     }
 
-    try {
-      await fetch("http://127.0.0.1:8000/add-reminder/", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          medicine: newMedicine,
-          time: newTime,
-          phone: phone,
-        }),
-      });
+    const newReminder: Reminder = {
+      id: Date.now(),
+      medicine: newMedicine,
+      time: newTime,
+      phone: phone,
+      called: false,
+    };
 
-      fetchReminders(); // refresh list
-    } catch (err) {
-      console.error("Add error:", err);
-    }
+    const updated = [...reminders, newReminder];
+    setReminders(updated);
+    saveToStorage(updated);
 
     setNewMedicine("");
     setPhone("");
@@ -68,19 +62,56 @@ export default function Reminders() {
   };
 
   // =========================
-  // 🗑 DELETE REMINDER
+  // DELETE
   // =========================
-  const deleteReminder = async (id: string) => {
-    try {
-      await fetch(`http://127.0.0.1:8000/delete-reminder/${id}`, {
-        method: "DELETE",
-      });
-
-      setReminders((prev) => prev.filter((r) => r._id !== id));
-    } catch (err) {
-      console.error("Delete error:", err);
-    }
+  const deleteReminder = (id: number) => {
+    const updated = reminders.filter((r) => r.id !== id);
+    setReminders(updated);
+    saveToStorage(updated);
   };
+
+  // =========================
+  // 🔥 AUTO CALL CHECKER
+  // =========================
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const now = new Date();
+      const currentTime =
+        now.getHours().toString().padStart(2, "0") +
+        ":" +
+        now.getMinutes().toString().padStart(2, "0");
+
+      reminders.forEach(async (r) => {
+        if (r.time === currentTime && !r.called) {
+          console.log("📞 Calling for:", r.medicine);
+
+          try {
+            await fetch("http://localhost:5000/call-reminder", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                phone: r.phone,
+                medicine: r.medicine,
+              }),
+            });
+
+            // mark as called
+            const updated = reminders.map((item) =>
+              item.id === r.id ? { ...item, called: true } : item
+            );
+
+            setReminders(updated);
+            saveToStorage(updated);
+
+          } catch (err) {
+            console.error("Call failed:", err);
+          }
+        }
+      });
+    }, 5000); // check every 5 sec
+
+    return () => clearInterval(interval);
+  }, [reminders]);
 
   return (
     <Layout>
@@ -135,7 +166,7 @@ export default function Reminders() {
         {/* LIST */}
         <div className="space-y-4">
           {reminders.map((r) => (
-            <div key={r._id} className="elder-card flex items-center gap-4">
+            <div key={r.id} className="elder-card flex items-center gap-4">
 
               <div className="w-14 h-14 rounded-2xl bg-info/15 flex items-center justify-center">
                 <Bell className="w-7 h-7 text-info" />
@@ -146,23 +177,16 @@ export default function Reminders() {
 
                 <div className="flex items-center gap-2 text-gray-500 mt-1">
                   <Clock className="w-4 h-4" />
-                  <span>{r.time} • Daily</span>
+                  <span>{r.time}</span>
                 </div>
 
-                <div className="flex gap-3 mt-2">
-                  <span className="flex items-center gap-1 text-sm px-2 py-1 rounded bg-gray-200">
-                    <MessageSquare className="w-3 h-3" /> SMS
-                  </span>
-
-                  <span className="flex items-center gap-1 text-sm px-2 py-1 rounded bg-blue-100 text-blue-600">
-                    <Phone className="w-3 h-3" /> Call
-                  </span>
+                <div className="text-sm mt-1">
+                  {r.called ? "✅ Called" : "⏳ Pending"}
                 </div>
               </div>
 
-              {/* 🗑 DELETE BUTTON */}
               <button
-                onClick={() => deleteReminder(r._id)}
+                onClick={() => deleteReminder(r.id)}
                 className="text-red-500 hover:bg-red-100 p-2 rounded-lg"
               >
                 <Trash2 className="w-5 h-5" />
