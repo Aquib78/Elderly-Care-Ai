@@ -82,30 +82,39 @@ export default function Reports() {
         )}
 
         {/* AI Output */}
-        {simplifiedText && (
-          <div className="elder-card bg-green-100">
-            <div className="flex justify-between items-center mb-2">
-              <h2 className="font-bold text-green-700">
-                🤖 Simple Explanation
-              </h2>
+  {simplifiedText && (
+  <div className="elder-card border border-green-300 bg-green-50 p-5 space-y-4">
 
-              <button
-                onClick={() => {
-                  const speech = new SpeechSynthesisUtterance(
-                    simplifiedText
-                  );
-                  speechSynthesis.speak(speech);
-                }}
-              >
-                <Volume2 />
-              </button>
-            </div>
+    {/* HEADER */}
+    <div className="flex justify-between items-center">
+      <h2 className="font-bold text-green-700 text-lg">
+        🧠 AI Medical Interpretation
+      </h2>
 
-            <div className="whitespace-pre-wrap">
-              {simplifiedText}
-            </div>
-          </div>
-        )}
+      <button
+        onClick={() => {
+          const speech = new SpeechSynthesisUtterance(simplifiedText);
+          speechSynthesis.speak(speech);
+        }}
+        className="p-2 rounded-lg hover:bg-green-200"
+      >
+        <Volume2 />
+      </button>
+    </div>
+
+    {/* CONTENT */}
+    <div className="space-y-4 text-sm leading-relaxed text-gray-800">
+
+      {simplifiedText.split("\n\n").map((section, index) => (
+        <div key={index} className="bg-white p-4 rounded-xl shadow-sm border">
+          {section}
+        </div>
+      ))}
+
+    </div>
+
+  </div>
+)}
       </div>
     </Layout>
   );
